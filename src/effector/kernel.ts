@@ -6,6 +6,7 @@ import {getForkPage, getGraph, getMeta, getParent, getValue} from './getter'
 import {STORE, EFFECT, SAMPLER, STACK, BARRIER, VALUE, REG_A, MAP} from './tag'
 import type {Scope} from './unit.h'
 import {add, forEach} from './collection'
+import * as step from "./step";
 
 /** Names of priority groups */
 type PriorityTag = 'child' | 'pure' | 'read' | 'barrier' | 'sampler' | 'effect'
@@ -412,6 +413,25 @@ export function launch(unit, payload?, upsert?: boolean) {
       }
       stop = local.fail || skip
     }
+    /**
+     * Fooling around
+     * notify all next nodes about catched error
+     */
+    if (stop) {
+      const failedNode = node;
+      const error = (local as any).error;
+
+      notifyErrorStatus(failedNode, error)
+      if (!failedNode.seq.find(cmd => (cmd as any).catcher)) {
+        /**
+         * Next time this node is called in correct way, without errors
+         * It should notify, that exception is gone
+         */
+        const notifyStep = step.calc((data) => {notifyErrorStatus(node, null); return data}, false);
+        (notifyStep as any).catcher = true;
+        failedNode.seq.push(notifyStep)
+      }
+    }
     if (!stop) {
       const finalValue = getValue(stack)
       forEach(node.next, nextNode => {
@@ -535,6 +555,24 @@ const tryRun = (local: Local, fn: Function, stack: Stack) => {
     return fn(getValue(stack), local.scope, stack)
   } catch (err) {
     console.error(err)
-    local.fail = true
+    local.fail = true;
+    (local as any).error = err;
+  }
+}
+
+function notifyErrorStatus (node: Node, error: unknown) {
+  const notified: Record<any, any> = {
+    [node.id]: true,
+  };
+  (node as any).catcher?.(error)
+
+  const nqueue = node.next.slice()
+  while(nqueue.length) {
+    const current = nqueue.shift()
+    if (current && !notified[current.id]) {
+      (current as any).catcher?.(error)
+      nqueue.push(...current.next)
+      notified[current.id] = true;
+    }
   }
 }
