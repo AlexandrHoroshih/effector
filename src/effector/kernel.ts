@@ -417,7 +417,7 @@ export function launch(unit, payload?, upsert?: boolean) {
      * Fooling around
      * notify all next nodes about catched error
      */
-    if (stop) {
+    if (stop && (local as any).error) {
       const failedNode = node;
       const error = (local as any).error;
 
