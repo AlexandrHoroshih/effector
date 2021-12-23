@@ -427,7 +427,7 @@ export function launch(unit, payload?, upsert?: boolean) {
          * Next time this node is called in correct way, without errors
          * It should notify, that exception is gone
          */
-        const notifyStep = step.calc((data) => {notifyErrorStatus(node, null); return data}, false);
+        const notifyStep = step.calc((data) => {notifyErrorStatus(failedNode, null); return data}, false);
         (notifyStep as any).catcher = true;
         failedNode.seq.push(notifyStep)
       }
@@ -573,6 +573,15 @@ function notifyErrorStatus (node: Node, error: unknown) {
       (current as any).catcher?.(error)
       nqueue.push(...current.next)
       notified[current.id] = true;
+
+      /**
+       * effect does not have its finally in next
+       * so it needs to be extracted from family links
+       */
+      if (current.meta.op === "effect") {
+        const anyway = current.family.links.find(node => node.meta.named === "finally")
+        anyway && nqueue.push(anyway)
+      }
     }
   }
 }
