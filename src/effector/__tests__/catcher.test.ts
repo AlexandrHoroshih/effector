@@ -1,5 +1,6 @@
 import {
-  launch,
+  fork,
+  allSettled,
   createStore,
   createEvent,
   sample,
@@ -52,42 +53,126 @@ it('catches unexpected errors', () => {
   expect($store.getState()).toEqual(4)
 })
 
-it('catches unexpected errors through effects', () => {
-    const start = createEvent<number>()
-    const $store = createStore(0)
-    const eff = createEffect((v: number) => v)
+it('catches unexpected errors through events and stores', () => {
+  const start = createEvent<number>()
+  const $store = createStore(0)
+  const eff = createEvent()
+  const $another = createStore(0)
+  $another.on(eff, (_, d) => d)
 
-    $store.on(eff.doneData, (_, n) => n)
-  
-    sample({
-      clock: sample({
-        source: $store,
-        clock: start,
-        fn: (_, n) => {
-          // fake computation error
-          if (n === 2) {
-            throw new Error("Oh-oh, didn't work with 2")
-          }
-          return n
-        },
-      }),
-      target: eff,
-    })
-  
-    const $error = catcher({
-      target: $store,
-    })
-  
-    expect($error.getState()).toMatchInlineSnapshot(`null`)
-    start(10)
-    start(2)
-    expect($error.getState()).toMatchInlineSnapshot(
-      `[Error: Oh-oh, didn't work with 2]`,
-    )
-    start(3)
-    start(4)
-  
-    expect($error.getState()).toMatchInlineSnapshot(`null`)
-    expect($store.getState()).toEqual(4)
+  $store.on($another, (_, n) => n)
+
+  sample({
+    clock: sample({
+      source: $store,
+      clock: start,
+      fn: (_, n) => {
+        // fake computation error
+        if (n === 2) {
+          throw new Error("Oh-oh, didn't work with 2")
+        }
+        return n
+      },
+    }),
+    target: eff,
   })
-  
+
+  const $error = catcher({
+    target: $store,
+  })
+
+  expect($error.getState()).toMatchInlineSnapshot(`null`)
+  start(10)
+  start(2)
+  expect($error.getState()).toMatchInlineSnapshot(
+    `[Error: Oh-oh, didn't work with 2]`,
+  )
+  start(3)
+  start(4)
+
+  expect($error.getState()).toMatchInlineSnapshot(`null`)
+  expect($store.getState()).toEqual(4)
+})
+
+it('catches unexpected errors through events and stores in fork', () => {
+  const start = createEvent<number>()
+  const $store = createStore(0)
+  const eff = createEvent()
+  const $another = createStore(0)
+  $another.on(eff, (_, d) => d)
+
+  $store.on($another, (_, n) => n)
+
+  sample({
+    clock: sample({
+      source: $store,
+      clock: start,
+      fn: (_, n) => {
+        // fake computation error
+        if (n === 2) {
+          throw new Error("Oh-oh, didn't work with 2")
+        }
+        return n
+      },
+    }),
+    target: eff,
+  })
+
+  const $error = catcher({
+    target: $store,
+  })
+
+  const scope = fork()
+
+  expect(scope.getState($error)).toMatchInlineSnapshot(`null`)
+  allSettled(start, {scope, params: 10})
+  allSettled(start, {scope, params: 2})
+  expect(scope.getState($error)).toMatchInlineSnapshot(
+    `[Error: Oh-oh, didn't work with 2]`,
+  )
+  expect($error.getState()).toMatchInlineSnapshot(`null`)
+  allSettled(start, {scope, params: 3})
+  allSettled(start, {scope, params: 4})
+
+  expect(scope.getState($error)).toMatchInlineSnapshot(`null`)
+  expect(scope.getState($store)).toEqual(4)
+})
+
+it('catches unexpected errors through effects', () => {
+  const start = createEvent<number>()
+  const $store = createStore(0)
+  const eff = createEffect((v: number) => v)
+
+  $store.on(eff.doneData, (_, n) => n)
+
+  sample({
+    clock: sample({
+      source: $store,
+      clock: start,
+      fn: (_, n) => {
+        // fake computation error
+        if (n === 2) {
+          throw new Error("Oh-oh, didn't work with 2")
+        }
+        return n
+      },
+    }),
+    target: eff,
+  })
+
+  const $error = catcher({
+    target: $store,
+  })
+
+  expect($error.getState()).toMatchInlineSnapshot(`null`)
+  start(10)
+  start(2)
+  expect($error.getState()).toMatchInlineSnapshot(
+    `[Error: Oh-oh, didn't work with 2]`,
+  )
+  start(3)
+  start(4)
+
+  expect($error.getState()).toMatchInlineSnapshot(`null`)
+  expect($store.getState()).toEqual(4)
+})
