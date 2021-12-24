@@ -427,7 +427,7 @@ export function launch(unit, payload?, upsert?: boolean) {
          * Next time this node is called in correct way, without errors
          * It should notify, that exception is gone
          */
-        const notifyStep = step.calc((data) => {notifyErrorStatus(failedNode, null); return data}, false);
+        const notifyStep = step.calc((data) => {notifyErrorStatus(failedNode, null); return data}, false, true);
         (notifyStep as any).catcher = true;
         failedNode.seq.push(notifyStep)
       }
