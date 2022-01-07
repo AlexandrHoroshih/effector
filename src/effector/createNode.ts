@@ -22,6 +22,7 @@ export function createNode({
   meta = {},
   family: familyRaw = {type: 'regular'},
   regional,
+  hot
 }: {
   node?: Array<Cmd | false | void | null>
   from?: NodeUnit | NodeUnit[]
@@ -38,16 +39,21 @@ export function createNode({
     owners?: NodeUnit | Array<NodeUnit | NodeUnit[]>
   }
   regional?: boolean
+  hot?: boolean
 } = {}): Node {
   const sources = arrifyNodes(parent)
   const links = arrifyNodes(familyRaw.links)
   const owners = arrifyNodes(familyRaw.owners)
+  const next = arrifyNodes(child)
   const seq: Cmd[] = []
   forEach(node, item => item && add(seq, item))
   const result: Node = {
     id: nextNodeID(),
     seq,
-    next: arrifyNodes(child),
+    prev: sources,
+    hot,
+    next,
+    watchersCount: 0,
     meta,
     scope,
     family: {
@@ -59,6 +65,9 @@ export function createNode({
   forEach(links, link => add(getOwners(link), result))
   forEach(owners, owner => add(getLinks(owner), result))
   forEach(sources, source => add(source.next, result))
+  forEach(next, node => {
+    add(node.prev, result)
+  })
   if (regional && regionStack) {
     own(getValue(regionStack), [result])
   }

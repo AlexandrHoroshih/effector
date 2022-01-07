@@ -309,6 +309,8 @@ export function createStore<State>(
     child: updates,
     meta,
     regional: true,
+    // basic stores are always hot - they cannot miss any updates and cannot be turned off
+    hot: !props?.derived
   })
   const sid: string | null = getMeta(store, 'sid')
   if (sid) {

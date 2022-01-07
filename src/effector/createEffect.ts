@@ -10,6 +10,7 @@ import {assert} from './throw'
 import {EFFECT} from './tag'
 import type {Unit} from './index.h'
 import {add} from './collection'
+import {setHot} from "./watch"
 
 export function createEffect<Payload, Done>(nameOrConfig, maybeConfig?) {
   const instance = createEvent(
@@ -18,6 +19,8 @@ export function createEffect<Payload, Done>(nameOrConfig, maybeConfig?) {
   )
   const node = getGraph(instance)
   setMeta(node, 'op', (instance.kind = EFFECT))
+  // effects are always hot
+  setHot(node)
   instance.use = (fn: Function) => {
     assert(isFunction(fn), '.use argument should be a function')
     runner.scope.handler = fn

@@ -203,6 +203,8 @@ const barriers = new Set<string | number>()
 let isRoot = true
 export let isWatch = false
 export let isPure = false
+export let isDryRun = false
+export let isForcedHot = false
 export let currentPage: Leaf | null = null
 export let forkPage: Scope | void | null
 export const setForkPage = (newForkPage: Scope) => {
@@ -244,12 +246,30 @@ export function launch(config: {
   page?: Leaf | void | null
   scope?: Scope | void
   stack?: Stack | void
+  dryRun?: boolean
+  forceHot?: boolean
 }): void
 export function launch(unit: NodeUnit, payload?, upsert?: boolean): void
 export function launch(unit, payload?, upsert?: boolean) {
   let pageForLaunch = currentPage
   let stackForLaunch = null
   let forkPageForLaunch = forkPage
+  /**
+   * Dry launch == no side effects called, only state calculation
+   */
+  let dryLaunch = isDryRun
+  /**
+   * "hot" launch == calculate node anyway, even if it's results are never observed (thats how effector works now)
+   * "cold" launch == calculate node only if it may called side-effects or non-derived stores updates
+   */
+  let hotLaunch = isForcedHot
+  if ("dryRun" in unit) {
+    dryLaunch = unit.dryRun
+  }
+  if ("forceHot" in unit) {
+    hotLaunch = unit.forceHot
+  }
+
   if (unit.target) {
     payload = unit.params
     upsert = unit.defer
@@ -290,7 +310,11 @@ export function launch(unit, payload?, upsert?: boolean) {
     scope: forkPage,
     isWatch,
     isPure,
+    isDryRun,
+    isForcedHot,
   }
+  isDryRun = dryLaunch
+  isForcedHot = hotLaunch
   isRoot = false
   let stop: boolean
   let skip: boolean
@@ -389,7 +413,8 @@ export function launch(unit, payload?, upsert?: boolean) {
         }
         case 'compute':
           const data = step.data
-          if (data.fn) {
+          const skipEffects = isDryRun && !!(step?.order?.priority === EFFECT)
+          if (data.fn && !skipEffects) {
             isWatch = getMeta(node, 'op') === 'watch'
             isPure = data.pure
             const computationResult = data.safe
@@ -463,6 +488,8 @@ export function launch(unit, payload?, upsert?: boolean) {
   isRoot = lastStartedState.isRoot
   currentPage = lastStartedState.currentPage
   forkPage = getForkPage(lastStartedState)
+  isDryRun = lastStartedState.isDryRun
+  isForcedHot = lastStartedState.isForcedHot
 }
 
 export const initRefInScope = (

@@ -36,6 +36,12 @@ export type Config = {
 
 export type Node = {
   id: ID
+  prev: Array<Node>
+  hot?: boolean
+  watchersCount?: number
+  watchersCountScope?: {
+    [key: string]: number
+  }
   next: Array<Node>
   seq: Array<Cmd>
   scope: {[key: string]}
