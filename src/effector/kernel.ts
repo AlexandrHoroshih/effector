@@ -440,6 +440,7 @@ export function launch(unit, payload?, upsert?: boolean) {
     if (!stop) {
       const finalValue = getValue(stack)
       forEach(node.next, nextNode => {
+        if (!isForcedHot && (!nextNode.hot || !nextNode.watchersCount)) return;
         pushFirstHeapItem(
           'child',
           page,
